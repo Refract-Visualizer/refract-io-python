@@ -1,0 +1,71 @@
+[project]
+name = "refract-io"
+version = "0.1.0"
+description = "Refract I/O library"
+authors = [
+    { name = "Richard Chen", email = "richardchen.93@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "grpcio>=1.60.0",
+    "protobuf>=4.25.0",
+    "zeroconf>=0.131.0",
+]
+
+[project.urls]
+Homepage = "https://refractvisualizer.ca/"
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "grpc-stubs>=1.53.0",
+    "grpcio-tools>=1.60.0",
+    "isort>=6.0.0",
+    "mypy>=1.15.0",
+    "pre-commit>=4.0.0",
+    "ruff>=0.11.0",
+    "types-protobuf>=4.25.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.21,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+extend-exclude = "src/refract_io/_proto"
+
+[tool.isort]
+profile = "black"
+line_length = 88
+src_paths = ["src"]
+extend_skip_glob = ["src/refract_io/_proto/*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["src"]
+extend-exclude = ["src/refract_io/_proto"]
+
+[tool.ruff.lint]
+# isort runs in pre-commit; ruff lint omits "I" to avoid conflicting import rules.
+select = ["E", "W", "F", "B", "UP", "C4"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+mypy_path = "src"
+explicit_package_bases = true
+packages = ["refract_io"]
+
+[[tool.mypy.overrides]]
+module = "refract_io._proto.*"
+ignore_errors = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = "zeroconf"
+ignore_missing_imports = true
