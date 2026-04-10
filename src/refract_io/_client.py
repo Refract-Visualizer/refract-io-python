@@ -27,12 +27,23 @@ _DEFAULT_PORT = 50051
 # Sentinel used to signal the background thread to stop.
 _STOP = object()
 
+_GRPC_PEER_GONE: frozenset[grpc.StatusCode] = frozenset(
+    {
+        grpc.StatusCode.CANCELLED,
+        grpc.StatusCode.UNAVAILABLE,
+        grpc.StatusCode.ABORTED,
+    }
+)
+
 
 class RefractStream:
     """Stream tabular data over gRPC to the Refract app.
 
     ``host`` and ``port`` are optional.  When both are ``None`` the client
-    attempts Bonjour autodiscovery and falls back to ``localhost:50051``.
+    attempts Bonjour autodiscovery (``_refract._tcp`` with
+    ``transport=refract-stream``; prefers TXT ``state=waiting`` over
+    ``state=active``) and falls back to
+    ``localhost:50051``.
     ``port`` accepts either an ``int`` or a numeric ``str``.
     """
 
@@ -203,13 +214,23 @@ class RefractStream:
         if not self._running:
             return
         self._running = False
-        self._queue.put(_STOP)
-        if self._thread is not None:
-            self._thread.join(timeout=5)
+        try:
+            self._queue.put_nowait(_STOP)
+        except queue.Full:
+            pass
+        thread = self._thread
+        ch = self._channel
+        self._channel = None
+        if ch is not None:
+            try:
+                ch.close()
+            except Exception:
+                logger.debug("Error closing gRPC channel", exc_info=True)
+        if thread is not None:
+            thread.join(timeout=5)
+            if thread.is_alive():
+                logger.warning("Stream thread did not exit within join timeout")
             self._thread = None
-        if self._channel is not None:
-            self._channel.close()
-            self._channel = None
 
     stop = close
 
@@ -244,16 +265,18 @@ class RefractStream:
         yield from self._pending_registrations
         self._pending_registrations.clear()
 
-        # Stream from queue
-        while self._running:
+        # Stream from queue; exit when idle after *close* even if gRPC is slow.
+        while True:
             try:
                 item = self._queue.get(timeout=0.1)
-                if item is _STOP:
-                    break
-                assert isinstance(item, kvstream_pb2.StreamMessage)  # noqa: S101
-                yield item
             except queue.Empty:
+                if not self._running:
+                    break
                 continue
+            if item is _STOP:
+                break
+            assert isinstance(item, kvstream_pb2.StreamMessage)  # noqa: S101
+            yield item
 
     def _stream_loop(self) -> None:
         try:
@@ -262,8 +285,16 @@ class RefractStream:
             if not response.ok:
                 logger.error("Server error: %s", response.error)
         except grpc.RpcError as exc:
-            if self._running:
-                logger.error("gRPC error: %s", exc)
+            if not self._running:
+                return
+            if exc.code() in _GRPC_PEER_GONE:
+                logger.debug(
+                    "gRPC stream ended (%s): %s",
+                    exc.code().name,
+                    exc.details() or exc,
+                )
+                return
+            logger.error("gRPC error: %s", exc)
         except Exception:
             if self._running:
                 logger.exception("Unexpected error in stream loop")

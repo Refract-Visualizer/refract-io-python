@@ -1,6 +1,6 @@
 [project]
 name = "refract-io-lib"
-version = "0.1.1"
+version = "0.1.2"
 description = "Refract I/O library"
 authors = [
     { name = "Richard Chen", email = "richardchen.93@gmail.com" }
