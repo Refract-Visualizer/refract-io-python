@@ -1,0 +1,51 @@
+# Publish to PyPI when commits land on main (including merge commits).
+#
+# One-time setup:
+# 1. Create the package on https://pypi.org/ if it does not exist yet.
+# 2. PyPI → Your project → Publishing → Add a new pending publisher:
+#    - Publisher: GitHub
+#    - Owner: your GitHub user or org
+#    - Repository: this repo name
+#    - Workflow name: publish-pypi.yml
+#    - Environment name: pypi (must match `environment.name` below)
+# 3. GitHub → Settings → Environments → New environment → name: pypi
+#    (no secrets required for OIDC trusted publishing)
+#
+# Bump `version` in pyproject.toml before each release; PyPI rejects duplicate versions.
+
+name: Publish to PyPI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "src/**"
+      - ".github/workflows/publish-pypi.yml"
+
+concurrency:
+  group: pypi-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/refract-io
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
