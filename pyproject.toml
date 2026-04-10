@@ -1,5 +1,5 @@
 [project]
-name = "refract-io"
+name = "refract-io-lib"
 version = "0.1.0"
 description = "Refract I/O library"
 authors = [
@@ -30,6 +30,9 @@ dev = [
 [build-system]
 requires = ["uv_build>=0.9.21,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "refract_io"
 
 [tool.black]
 line-length = 88
