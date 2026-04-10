@@ -21,7 +21,7 @@ def discover_refract(timeout: float = 3.0) -> tuple[str, int] | None:
     found = threading.Event()
 
     def on_state_change(
-        zc: Zeroconf,
+        zeroconf: Zeroconf,
         service_type: str,
         name: str,
         state_change: ServiceStateChange,
@@ -29,7 +29,7 @@ def discover_refract(timeout: float = 3.0) -> tuple[str, int] | None:
         nonlocal result
         if state_change is not ServiceStateChange.Added:
             return
-        info = zc.get_service_info(service_type, name)
+        info = zeroconf.get_service_info(service_type, name)
         if info is None:
             return
         addresses = info.parsed_addresses()
